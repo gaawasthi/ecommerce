@@ -11,7 +11,7 @@ export const createOrder = TryCatch(async (req, res) => {
   };
   if (!userId) {
     res.status(401).json({
-      message: 'login first no user founded', 
+      message: 'login first no user founded',
     });
   }
   const order = new Order(orderData);
@@ -96,53 +96,49 @@ export const userGetSingleOrder = TryCatch(async (req, res) => {
 
 export const userCancelSingleOrder = TryCatch(async (req, res) => {
   const { id } = req.params;
-  const userId = req.user.id
+  const userId = req.user.id;
 
-   
-  //confirm that users owns his orders 
-  
-   const order = await Order.findOne({
-    _id:id , user:userId
-  })
+  //confirm that users owns his orders
 
-  if(!order){
+  const order = await Order.findOne({
+    _id: id,
+    user: userId,
+  });
+
+  if (!order) {
     return res.status(404).json({
-      soccess:false,
-      message :"No orders found"
-    })
+      soccess: false,
+      message: 'No orders found',
+    });
   }
 
-  if (['delivered' ,'returned' , "cancelled" ].includes(order.orderStatus)){
-
+  if (['delivered', 'returned', 'cancelled'].includes(order.orderStatus)) {
     return res.status(400).json({
-      success:false ,
-      message :`cannot cancel an order that is already ${order.orderStatus}`
-    })
+      success: false,
+      message: `cannot cancel an order that is already ${order.orderStatus}`,
+    });
   }
 
   const updatedOrder = await Order.findByIdAndUpdate(
     id,
-    {orderStatus:"cancelled"},
+    { orderStatus: 'cancelled' },
     { new: true, runValidators: true }
   );
-    if (!updatedOrder) {
+  if (!updatedOrder) {
     return res.status(404).json({
       message: 'no order found',
     });
   }
-   return res.status(200).json({
+  return res.status(200).json({
     message: 'order cancelled',
     updatedOrder,
   });
-
-
 });
 
-
-// update  ---seller can change status 
- export const sellerUpdateOrder = TryCatch(async (req, res) => {
-  const { id } = req.params; 
-  const { status } = req.body; 
+// update  ---seller can change status
+export const sellerUpdateOrder = TryCatch(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
   const sellerId = req.user.id;
 
   const validStatuses = [
@@ -154,8 +150,6 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
     'returned',
   ];
 
- 
-  
   if (!validStatuses.includes(status)) {
     return res.status(400).json({
       success: false,
@@ -163,7 +157,10 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
     });
   }
 
-  const order = await Order.findById(id).populate('items.product', 'seller name');
+  const order = await Order.findById(id).populate(
+    'items.product',
+    'seller name'
+  );
 
   if (!order) {
     return res.status(404).json({
@@ -171,7 +168,6 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
       message: 'Order not found',
     });
   }
-
 
   const sellerHasProduct = order.items.some(
     (item) => item.product && item.product.seller?.toString() === sellerId
@@ -184,7 +180,6 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
     });
   }
 
-  
   order.orderStatus = status;
   await order.save();
 
@@ -195,24 +190,29 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
   });
 });
 
-
 // admin see alllllll orders
 
-export const allOrdersForAdmin  = TryCatch(async (req , res)=>{
+export const allOrdersForAdmin = TryCatch(async (req, res) => {
+  const order = await Order.find();
 
+  if (!order) {
+    return res.status(400).json({
+      message: 'no orders',
+    });
+  }
 
-         const order = await Order.find()
+  const count = (await order).length;
+  return res.status(200).json({
+    message: 'orders',
+    count,
+    order,
+  });
+});
+// bulk update seller status
+// export const bulkStatusUpdate = TryCatch(async (req, res) => {
+//   const { productIds, status } = req.body;
 
-         if(!order){
-          return res.status(400).json({
-            message:"no orders"
-          })
-         }
-
-          const count = (await order).length
-         return res.status(200).json({
-          message:"orders",
-          count , 
-          order
-         })
-})
+//   if (!productIds || !Array.isArray(productIds) || !status) {
+//     return res.status(400).json({ message: 'provide array and status' });
+//   }
+// });

@@ -10,6 +10,7 @@ import {
 } from '../controller/ProductController.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
 import { checkRole } from '../middlewares/validateRole.js';
+import { upload } from '../middlewares/multer.js';
 
 const router = Router();
 
@@ -18,7 +19,13 @@ router.get('/', getProducts);
 router.get('/:id', getSingleProduct);
 
 // seller protected route
-router.post('/create', authMiddleware, checkRole('admin' , 'seller'), addProduct);
+router.post(
+  '/create',
+  authMiddleware,
+  checkRole('admin', 'seller'),
+  upload.array(`images`, 5),
+  addProduct
+);
 router.get('/my/products', authMiddleware, checkRole('seller'), getMyProducts);
 router.delete(
   '/:id',
@@ -34,4 +41,4 @@ router.patch(
   patchProduct
 );
 
-export default router;
+export default router; 
