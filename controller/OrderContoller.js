@@ -4,25 +4,49 @@ import { Product } from '../models/Product.js';
 
 // create order
 export const createOrder = TryCatch(async (req, res) => {
-  const userId = req.user.id;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({
+      message: 'login first — no seller found',
+    });
+  }
+
   const orderData = {
     ...req.body,
     user: userId,
   };
-  if (!userId) {
-    res.status(401).json({
-      message: 'login first no user founded',
-    });
+
+  const items = orderData.items || []; 
+
+  for (const item of items) {
+    const product = await Product.findById(item.product);
+    if (!product) {
+      return res.status(404).json({
+        message: `Product not found: ${item.product}`,
+      });
+    }
+
+    if (product.stock < item.quantity) {
+      return res.status(400).json({
+        message: `insufficient stock for product: ${product.name}`,
+      });
+    }
+
+ 
+    product.stock -= item.quantity;
+    await product.save();
   }
+
+
   const order = new Order(orderData);
   await order.save();
 
   return res.status(201).json({
-    message: 'order placed successfully',
+    message: 'Order placed successfully',
     order,
   });
 });
-// seller geting order details of there products
 
 export const getSellerProductOrder = TryCatch(async (req, res) => {
   const sellerId = req.user.id;

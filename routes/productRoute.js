@@ -5,7 +5,7 @@ import {
   getMyProducts,
   getProducts,
   getSingleProduct,
-  patchProduct,
+
   updateProduct,
 } from '../controller/ProductController.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
@@ -14,31 +14,30 @@ import { upload } from '../middlewares/multer.js';
 
 const router = Router();
 
-// without seller route
-router.get('/', getProducts);
-router.get('/:id', getSingleProduct);
+// GET all products
+router.get('/', getProducts); // http://localhost:8000/api/products
 
-// seller protected route
+
+// GET seller's own products
+router.get('/my/products', authMiddleware, checkRole('seller'), getMyProducts);
+
+// GET one product by ID
+router.get('/:id', getSingleProduct); // http://localhost:8000/api/products/:id
+
+// Create product
 router.post(
   '/create',
   authMiddleware,
   checkRole('admin', 'seller'),
-  upload.array(`images`, 5),
+  upload.array('images', 5),
   addProduct
 );
-router.get('/my/products', authMiddleware, checkRole('seller'), getMyProducts);
-router.delete(
-  '/:id',
-  authMiddleware,
-  checkRole('admin', 'seller'),
-  deleteProduct
-);
-router.put('/:id', authMiddleware, checkRole('admin', 'seller'), updateProduct);
-router.patch(
-  '/:id',
-  authMiddleware,
-  checkRole('admin', 'seller'),
-  patchProduct
-);
 
-export default router; 
+// Update product
+router.put('/:id', authMiddleware, checkRole('admin', 'seller'), updateProduct);
+
+// Delete product
+router.delete('/:id', authMiddleware, checkRole('admin', 'seller'), deleteProduct);
+
+
+export default router;

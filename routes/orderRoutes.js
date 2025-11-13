@@ -17,7 +17,7 @@ router.post('/create', authMiddleware, createOrder);
 router.get(
   '/seller/orders',
   authMiddleware,
-  checkRole('seller', 'admin'),
+  checkRole('seller'),
   getSellerProductOrder
 );
 router.get('/all',  authMiddleware ,checkRole('admin'), allOrdersForAdmin);

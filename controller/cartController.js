@@ -1,6 +1,7 @@
 import { Product } from '../models/Product.js';
 import { Cart } from '../models/Cart.js';
 import { TryCatch } from '../middlewares/TryCatch.js';
+import mongoose from 'mongoose';
 
 //  Add to cart
 
@@ -8,23 +9,35 @@ export const addToCart = TryCatch(async (req, res) => {
   const userId = req.user.id;
   const { productId, quantity = 1 } = req.body;
 
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return res.status(400).json({ message: 'Invalid product ID' });
+  }
+
   const product = await Product.findById(productId);
-  if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+
+  if (product.stock < quantity) {
+    return res.status(400).json({
+      message: 'Insufficient stock',
+      available: product.stock,
+    });
   }
 
   let cart = await Cart.findOne({ user: userId });
-
-  if (!cart) {
-    cart = new Cart({ user: userId, items: [] });
-  }
+  if (!cart) cart = new Cart({ user: userId, items: [] });
 
   const existingItem = cart.items.find(
     (item) => item.product.toString() === productId
   );
 
   if (existingItem) {
-    existingItem.quantity += quantity;
+    const newQuantity = existingItem.quantity + quantity;
+    if (newQuantity > product.stock) {
+      return res.status(400).json({
+        message: `Only ${product.stock} items in stock`,
+      });
+    }
+    existingItem.quantity = newQuantity;
   } else {
     cart.items.push({
       product: productId,
@@ -34,13 +47,9 @@ export const addToCart = TryCatch(async (req, res) => {
   }
 
   cart.calculatePrices();
-
   await cart.save();
 
-  res.status(200).json({
-    message: 'Item added to cart',
-    cart,
-  });
+  res.status(200).json({ message: 'Item added to cart', cart });
 });
 
 //  Get user’s cart
@@ -105,12 +114,10 @@ export const removeAnItem = TryCatch(async (req, res) => {
     { $pull: { items: { product: id } } },
     { new: true }
   );
-   cart.calculatePrices();
+  cart.calculatePrices();
   await cart.save();
   return res.status(200).json({
     message: 'removed from cart',
     cart,
   });
 });
-
-

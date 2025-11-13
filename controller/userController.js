@@ -5,7 +5,6 @@ import { TryCatch } from '../middlewares/TryCatch.js';
 import { redisClient } from '../server.js';
 import sendMail from '../utils/sendMail.js';
 
-
 //!chal rha hai ab touch nhi krna
 // registration route
 // register user route
@@ -71,8 +70,6 @@ export const verifyOtpAndCreateAccount = TryCatch(async (req, res) => {
 
   const userData = JSON.parse(userDataStr);
   const { firstName, lastName, password, phone, role } = userData;
-
- 
 
   const newUser = await User.create({
     firstName,
@@ -169,6 +166,11 @@ export const logIn = TryCatch(async (req, res) => {
   res.json({
     message: 'Login successful',
     token,
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    firstName: user.firstName,
+    lastName: user.lastName,
   });
 });
 
@@ -221,7 +223,9 @@ export const resetPassword = TryCatch(async (req, res) => {
   const { email, otp, new_password } = req.body;
 
   if (!email || !otp || !new_password) {
-    return res.status(400).json({ message: 'Email, OTP, and new password are required' });
+    return res
+      .status(400)
+      .json({ message: 'Email, OTP, and new password are required' });
   }
 
   const user = await User.findOne({ email });
@@ -238,7 +242,6 @@ export const resetPassword = TryCatch(async (req, res) => {
     return res.status(400).json({ message: 'Incorrect OTP' });
   }
 
-  
   user.password = new_password;
   await user.save();
 
@@ -254,28 +257,26 @@ export const resetPassword = TryCatch(async (req, res) => {
 export const changePassword = TryCatch(async (req, res) => {
   const { password, new_password } = req.body;
 
-
   const userId = req.user?.id;
   if (!userId) {
-    return res.status(401).json({ message: "unauthorized" });
+    return res.status(401).json({ message: 'unauthorized' });
   }
 
-  const user = await User.findById(userId).select("+password");
+  const user = await User.findById(userId).select('+password');
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(404).json({ message: 'User not found' });
   }
-
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    return res.status(400).json({ message: "Incorrect current password" });
+    return res.status(400).json({ message: 'Incorrect current password' });
   }
   const hashedPassword = await bcrypt.hash(new_password, 10);
 
   user.password = hashedPassword;
   await user.save();
 
-  res.status(200).json({ message: "Password changed successfully" });
+  res.status(200).json({ message: 'Password changed successfully' });
 });
 
 // user routes
@@ -301,7 +302,6 @@ export const updateUser = TryCatch(async (req, res) => {
     user,
   });
 });
-
 
 // admin routes
 // get all users
@@ -339,6 +339,6 @@ export const deleteUser = TryCatch(async (req, res) => {
   });
 });
 
-//TODO 
+//TODO
 //? user route to upadate email and send otp to update email
 /////////////////////

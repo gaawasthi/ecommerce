@@ -1,6 +1,8 @@
 import { handleUpload } from '../config/claudinary.js';
 import { TryCatch } from '../middlewares/TryCatch.js';
 import { Product } from '../models/Product.js';
+import  User  from '../models/User.js';
+import {Order} from '../models/Order.js'
 
 
 
@@ -97,71 +99,70 @@ export const deleteProduct = TryCatch(async (req, res) => {
 });
 
 
- // seller dashboard 
   
-export const sellerAnalytics = TryCatch(async (req, res) => {
-  const sellerId = req.user.id;
+// export const sellerAnalytics = TryCatch(async (req, res) => {
+//   const sellerId = req.user.id;
 
 
-  const totalProducts = await Product.countDocuments({ seller: sellerId });
+//   const totalProducts = await Product.countDocuments({ seller: sellerId });
 
 
-  const lowStockProducts = await Product.find({
-    seller: sellerId,
-    stock: { $lte: 5 }, // gte greate // lte leseer
-  }).select("name stock");
+//   const lowStockProducts = await Product.find({
+//     seller: sellerId,
+//     stock: { $lte: 5 }, // gte greate // lte leseer
+//   }).select("name stock");
 
 
-  const recentOrders = await Order.find({ "items.seller": sellerId })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .populate("items.product", "name price")
-    .lean();
+//   const recentOrders = await Order.find({ "items.seller": sellerId })
+//     .sort({ createdAt: -1 })
+//     .limit(5)
+//     .populate("items.product", "name price")
+//     .lean();
 
-  // const topProducts = await Order.aggregate([
-  //   { $unwind: "$items" }, // 
-  //   { $match: { "items.seller": sellerId } }, // matc karega
-  //   {
-  //     $group: {
-  //       _id: "$items.product",
-  //       totalSold: { $sum: "$items.quantity" },
-  //       totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
-  //     },
-  //   },
-  //   {
-  //     $lookup: {
-  //       from: "products",
-  //       localField: "_id",
-  //       foreignField: "_id",
-  //       as: "product",
-  //     },
-  //   },
-  //   { $unwind: "$product" },
-  //   { $sort: { totalSold: -1 } },
-  //   { $limit: 5 },
-  //   {
-  //     $project: {
-  //       _id: 0,
-  //       productId: "$product._id",
-  //       name: "$product.name",
-  //       totalSold: 1,
-  //       totalRevenue: 1,
-  //     },
-  //   },
-  // ]);
+//   // const topProducts = await Order.aggregate([
+//   //   { $unwind: "$items" }, // 
+//   //   { $match: { "items.seller": sellerId } }, // matc karega
+//   //   {
+//   //     $group: {
+//   //       _id: "$items.product",
+//   //       totalSold: { $sum: "$items.quantity" },
+//   //       totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+//   //     },
+//   //   },
+//   //   {
+//   //     $lookup: {
+//   //       from: "products",
+//   //       localField: "_id",
+//   //       foreignField: "_id",
+//   //       as: "product",
+//   //     },
+//   //   },
+//   //   { $unwind: "$product" },
+//   //   { $sort: { totalSold: -1 } },
+//   //   { $limit: 5 },
+//   //   {
+//   //     $project: {
+//   //       _id: 0,
+//   //       productId: "$product._id",
+//   //       name: "$product.name",
+//   //       totalSold: 1,
+//   //       totalRevenue: 1,
+//   //     },
+//   //   },
+//   // ]);
 
 
-  res.status(200).json({
-    success: true,
-    data: {
-      totalProducts,
-      lowStockCount: lowStockProducts.length,
-      lowStockProducts,
-      recentOrders,
-      // topProducts,
-    },
-  });
-});
+//   res.status(200).json({
+//     success: true,
+//     data: {
+//       totalProducts,
+//       lowStockCount: lowStockProducts.length,
+//       lowStockProducts,
+//       recentOrders,
+//       // topProducts,
+//     },
+//   });
+// });
 
 
  // customer operations
@@ -170,27 +171,67 @@ export const sellerAnalytics = TryCatch(async (req, res) => {
 export const getProducts = TryCatch(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
-
-  // leftover data // skipped one
   const offset = (page - 1) * limit;
 
-  const product = await Product.find()
-    .populate('seller', 'firstName lastName email') /// add this data in result
+  const {
+    search,        
+    category,      
+    minPrice,      
+    maxPrice,      
+    sortBy,        
+    sortOrder,    
+  } = req.query;
+
+ 
+  const query = {};
+
+ 
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },      
+      { description: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+ 
+  if (category) {
+    query.category = category;
+  }
+
+ 
+  if (minPrice || maxPrice) {
+    query.price = {};
+    if (minPrice) query.price.$gte = parseFloat(minPrice);
+    if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+  }
+
+
+  let sort = {};
+  if (sortBy) {
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+  } else {
+    sort = { createdAt: -1 }; 
+  }
+
+  const products = await Product.find(query)
+    .populate('seller', 'firstName lastName email')
+    .sort(sort)
     .skip(offset)
     .limit(limit);
 
-  const totalProduct = await Product.countDocuments(); // couunt total products
+  const totalProduct = await Product.countDocuments(query);
   const totalPages = Math.ceil(totalProduct / limit);
 
   res.status(200).json({
-    message: 'product data',
+    message: 'Product list retrieved successfully',
     page,
     limit,
     totalProduct,
-    totalPages, 
-    product,
+    totalPages,
+    products,
   });
 });
+
 export const getSingleProduct = TryCatch(async (req, res) => {
   const { id } = req.params;
   const product = await Product.findById(id).populate(
@@ -207,18 +248,6 @@ export const getSingleProduct = TryCatch(async (req, res) => {
     product,
   });
 });
-// get featured and trending products
-export const adminAnalytics = TryCatch(async(req, res)=>{   const adminId = req.user.id;
-    
-   const totalProducts = await Product.countDocuments()
-   
-  
- 
 
-})
-// admin dashboard
-// tottal products 
-// total revenue 
-// revenue by seller  // top seller 
-// top customer 
+
 
