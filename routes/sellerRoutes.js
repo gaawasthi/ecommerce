@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.get('/total' , authMiddleware , checkRole("seller") , totalRevenueSeller )
 router.get('/low' , authMiddleware , checkRole("seller") , lowStockProducts )
+router.get('/pen' , authMiddleware , checkRole("seller") , pendingOrders )
 router.get('/del' , authMiddleware , checkRole("seller") , deliverdOrders )
 
 export default router;

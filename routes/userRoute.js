@@ -19,7 +19,8 @@ import validateUser from '../middlewares/validateUser.js';
 import { checkRole } from '../middlewares/validateRole.js';
 
 const router = express.Router();
-
+///api/users
+// http://localhost:8000/api/users // base url 
 // auth routes
 router.post('/register', validateUser, signUp);
 router.post('/resendOtp', resendOtp, signUp);

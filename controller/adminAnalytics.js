@@ -33,7 +33,7 @@ export const totalRevenue = TryCatch(async (req, res) => {
 
   const allItems = deliverdOrders.flatMap((order) => order.items);
   const totalRevenue = allItems.reduce((sum, item) => {
-    return sum + item.product.price * item.quantity;
+    return sum + item.product?.price * item.quantity;
   }, 0);
 
   res.status(200).json({ totalRevenue });
