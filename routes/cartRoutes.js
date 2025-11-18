@@ -4,6 +4,7 @@ import { checkRole } from '../middlewares/validateRole.js';
 import { authMiddleware } from '../middlewares/authmiddleware.js';
 import {
   addToCart,
+  clearCart,
   getCart,
   removeAnItem,
   updateCartItems,
@@ -11,9 +12,11 @@ import {
 
 const router = express.Router();
 
-router.post('/', authMiddleware, addToCart);
+router.post('/add', authMiddleware, addToCart);
 router.get('/', authMiddleware, getCart);
-router.post('/update/', authMiddleware, updateCartItems);
-router.put('/remove/:id', authMiddleware, removeAnItem);
+router.put('/update', authMiddleware, updateCartItems);
+router.delete('/remove/:id', authMiddleware, removeAnItem);
+router.put('/empty', authMiddleware, clearCart);
 
 export default router;
+``

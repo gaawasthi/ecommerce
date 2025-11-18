@@ -3,8 +3,6 @@ import { Cart } from '../models/Cart.js';
 import { TryCatch } from '../middlewares/TryCatch.js';
 import mongoose from 'mongoose';
 
-//  Add to cart
-
 export const addToCart = TryCatch(async (req, res) => {
   const userId = req.user.id;
   const { productId, quantity = 1 } = req.body;
@@ -27,7 +25,7 @@ export const addToCart = TryCatch(async (req, res) => {
   if (!cart) cart = new Cart({ user: userId, items: [] });
 
   const existingItem = cart.items.find(
-    (item) => item.product.toString() === productId
+    (item) => item.product.toString() === productId.toString()
   );
 
   if (existingItem) {
@@ -52,13 +50,12 @@ export const addToCart = TryCatch(async (req, res) => {
   res.status(200).json({ message: 'Item added to cart', cart });
 });
 
-//  Get user’s cart
 export const getCart = TryCatch(async (req, res) => {
   const userId = req.user.id;
 
-  const cart = await Cart.findOne({ user: userId });
+  const cart = await Cart.findOne({ user: userId }).populate('items.product');
 
-  if (cart.items.length === 0) {
+  if (!cart || cart.items.length === 0) {
     return res.status(400).json({
       message: 'your cart is empty',
     });
@@ -69,19 +66,25 @@ export const getCart = TryCatch(async (req, res) => {
     cart,
   });
 });
-//  Update item quantity
 
 export const updateCartItems = TryCatch(async (req, res) => {
   const userId = req.user.id;
   const { productId, quantity = 1 } = req.body;
 
-  const cart = await Cart.findOne({ user: userId });
+  const cart = await Cart.findOne({ user: userId }).populate('items.product');
   if (!cart) {
     return res.status(400).json({ message: 'cart not found' });
   }
 
+  const product = await Product.findById(productId);
+  if (!product) return res.status(404).json({ message: 'Product not found' });
+
+  if (quantity > product.stock) {
+    return res.status(400).json({ message: 'not enough stock' });
+  }
+
   const index = cart.items.findIndex(
-    (i) => i.product.toString() === productId.toString()
+    (i) => i.product._id.toString() === productId.toString()
   );
 
   if (index === -1) {
@@ -103,8 +106,6 @@ export const updateCartItems = TryCatch(async (req, res) => {
   });
 });
 
-//  Remove an item
-
 export const removeAnItem = TryCatch(async (req, res) => {
   const userId = req.user.id;
   const { id } = req.params;
@@ -113,11 +114,39 @@ export const removeAnItem = TryCatch(async (req, res) => {
     { user: userId },
     { $pull: { items: { product: id } } },
     { new: true }
-  );
+  ).populate('items.product');
+
+  if (!cart) {
+    return res.status(400).json({ message: 'cart not found' });
+  }
+
   cart.calculatePrices();
   await cart.save();
+
   return res.status(200).json({
     message: 'removed from cart',
+    cart,
+  });
+});
+
+// clear cart
+
+export const clearCart = TryCatch(async (req, res) => {
+  const userId = req.user.id;
+  const cart = await Cart.findOneAndUpdate(
+    { user: userId },
+    {
+      $set: {
+        items: [],
+        itemsPrice: 0,
+        totalPrice: 0,
+      },
+    },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    message: 'cart is empty now',
     cart,
   });
 });

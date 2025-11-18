@@ -2,25 +2,22 @@ import { Order } from '../models/Order.js';
 import { TryCatch } from '../middlewares/TryCatch.js';
 import { Product } from '../models/Product.js';
 
-// create order
+
 export const createOrder = TryCatch(async (req, res) => {
   const userId = req.user?.id;
 
   if (!userId) {
-    return res.status(401).json({
-      message: 'login first — no seller found',
-    });
+    return res.status(401).json({ message: 'login first — no seller found' });
   }
 
-  const orderData = {
-    ...req.body,
-    user: userId,
-  };
+  const orderData = { ...req.body, user: userId };
+  const items = orderData.items || [];
 
-  const items = orderData.items || []; 
+  const finalItems = [];
 
   for (const item of items) {
     const product = await Product.findById(item.product);
+
     if (!product) {
       return res.status(404).json({
         message: `Product not found: ${item.product}`,
@@ -33,11 +30,26 @@ export const createOrder = TryCatch(async (req, res) => {
       });
     }
 
- 
+
     product.stock -= item.quantity;
     await product.save();
+
+    
+    const mergedItem = {
+      ...item,
+      ...product.toObject(), 
+      product: undefined      
+    };
+
+    finalItems.push(mergedItem);
   }
 
+ 
+  orderData.items = finalItems;
+
+  
+  orderData.ordernumber =
+    'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
   const order = new Order(orderData);
   await order.save();
@@ -48,15 +60,15 @@ export const createOrder = TryCatch(async (req, res) => {
   });
 });
 
+
+
 export const getSellerProductOrder = TryCatch(async (req, res) => {
   const sellerId = req.user.id;
 
   const sellerProducts = await Product.find({ seller: sellerId }).select('_id');
 
-  if (!sellerProducts || sellerProducts.length === 0) {
-    return res
-      .status(404)
-      .json({ message: 'No products found for this seller' });
+  if (!sellerProducts.length) {
+    return res.status(404).json({ message: 'No products found for this seller' });
   }
 
   const sellerProductIds = sellerProducts.map((p) => p._id);
@@ -64,65 +76,53 @@ export const getSellerProductOrder = TryCatch(async (req, res) => {
   const orders = await Order.find({
     'items.product': { $in: sellerProductIds },
   })
-    .populate({
-      path: 'user',
-      select: 'name email',
-    })
-    .populate({
-      path: 'items.product',
-      select: 'name price description seller',
-    });
+    .populate('user', 'name email')
+    .populate('items.product', 'name price description seller');
+
   res.status(200).json({
     success: true,
     count: orders.length,
-    orders: orders,
-  });
-});
-
-//user see his orders
-export const userGetOrder = TryCatch(async (req, res) => {
-  const userID = req.user.id;
-
-  const orders = await Order.find({
-    user: userID,
-  });
-
-  if (!orders || orders.length === 0) {
-    return res.status(404).json({ message: 'no orders found' });
-  }
-  const count = orders.length;
-
-  return res.status(200).json({
-    messages: 'orders',
-    count,
     orders,
   });
 });
 
-// single order detail
+
+export const userGetOrder = TryCatch(async (req, res) => {
+  const userID = req.user.id;
+
+  const orders = await Order.find({ user: userID });
+
+  if (!orders.length) {
+    return res.status(404).json({ message: 'no orders found' });
+  }
+
+  return res.status(200).json({
+    messages: 'orders',
+    count: orders.length,
+    orders,
+  });
+});
+
+
 export const userGetSingleOrder = TryCatch(async (req, res) => {
   const { id } = req.params;
 
   const order = await Order.findById(id);
 
   if (!order) {
-    return res.status(404).json({
-      message: 'no order found',
-    });
+    return res.status(404).json({ message: 'no order found' });
   }
+
   return res.status(200).json({
     message: 'order detail',
     order,
   });
 });
 
-//user cancel order
 
 export const userCancelSingleOrder = TryCatch(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-
-  //confirm that users owns his orders
 
   const order = await Order.findOne({
     _id: id,
@@ -131,7 +131,7 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
 
   if (!order) {
     return res.status(404).json({
-      soccess: false,
+      success: false,
       message: 'No orders found',
     });
   }
@@ -143,23 +143,16 @@ export const userCancelSingleOrder = TryCatch(async (req, res) => {
     });
   }
 
-  const updatedOrder = await Order.findByIdAndUpdate(
-    id,
-    { orderStatus: 'cancelled' },
-    { new: true, runValidators: true }
-  );
-  if (!updatedOrder) {
-    return res.status(404).json({
-      message: 'no order found',
-    });
-  }
+  order.orderStatus = 'cancelled';
+  await order.save();
+
   return res.status(200).json({
     message: 'order cancelled',
-    updatedOrder,
+    order,
   });
 });
 
-// update  ---seller can change status
+
 export const sellerUpdateOrder = TryCatch(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -187,10 +180,7 @@ export const sellerUpdateOrder = TryCatch(async (req, res) => {
   );
 
   if (!order) {
-    return res.status(404).json({
-      success: false,
-      message: 'Order not found',
-    });
+    return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
   const sellerHasProduct = order.items.some(
@@ -214,29 +204,13 @@ export const sellerUpdateOrder = TryCatch(async (req, res) => {
   });
 });
 
-// admin see alllllll orders
 
 export const allOrdersForAdmin = TryCatch(async (req, res) => {
-  const order = await Order.find();
+  const orders = await Order.find();
 
-  if (!order) {
-    return res.status(400).json({
-      message: 'no orders',
-    });
-  }
-
-  const count = (await order).length;
   return res.status(200).json({
     message: 'orders',
-    count,
-    order,
+    count: orders.length,
+    orders,
   });
 });
-// bulk update seller status
-// export const bulkStatusUpdate = TryCatch(async (req, res) => {
-//   const { productIds, status } = req.body;
-
-//   if (!productIds || !Array.isArray(productIds) || !status) {
-//     return res.status(400).json({ message: 'provide array and status' });
-//   }
-// });
