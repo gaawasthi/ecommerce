@@ -30,24 +30,20 @@ export const createOrder = TryCatch(async (req, res) => {
       });
     }
 
-
+    // Deduct stock
     product.stock -= item.quantity;
     await product.save();
 
-    
-    const mergedItem = {
-      ...item,
-      ...product.toObject(), 
-      product: undefined      
-    };
-
-    finalItems.push(mergedItem);
+    // Correct structure
+    finalItems.push({
+      quantity: item.quantity,
+      product: product.toObject(), // send full product object
+    });
   }
 
- 
   orderData.items = finalItems;
 
-  
+  // Generate order number
   orderData.ordernumber =
     'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
 
@@ -59,6 +55,7 @@ export const createOrder = TryCatch(async (req, res) => {
     order,
   });
 });
+
 
 
 
@@ -90,7 +87,9 @@ export const getSellerProductOrder = TryCatch(async (req, res) => {
 export const userGetOrder = TryCatch(async (req, res) => {
   const userID = req.user.id;
 
-  const orders = await Order.find({ user: userID });
+  const orders = await Order.find({ user: userID })
+    .populate('items.product', 'name price images brand description') 
+    .sort({ createdAt: -1 }); 
 
   if (!orders.length) {
     return res.status(404).json({ message: 'no orders found' });
@@ -102,7 +101,6 @@ export const userGetOrder = TryCatch(async (req, res) => {
     orders,
   });
 });
-
 
 export const userGetSingleOrder = TryCatch(async (req, res) => {
   const { id } = req.params;

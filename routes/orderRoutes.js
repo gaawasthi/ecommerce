@@ -28,4 +28,4 @@ router.post('/orders/update/:id', authMiddleware, sellerUpdateOrder);
 
 export default router;
 
-//api/products/order/create
+

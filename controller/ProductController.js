@@ -1,33 +1,31 @@
 import { handleUpload } from '../config/claudinary.js';
 import { TryCatch } from '../middlewares/TryCatch.js';
 import { Product } from '../models/Product.js';
-import  User  from '../models/User.js';
-import {Order} from '../models/Order.js'
-
-
+import User from '../models/User.js';
+import { Order } from '../models/Order.js';
 
 // seller operations
 // add product via seller
 export const addProduct = TryCatch(async (req, res) => {
- let uploadedImages = [];
+  let uploadedImages = [];
 
-if (req.files?.length) {
-  uploadedImages = await Promise.all(
-    req.files.map(async (file) => {
-      const b64 = Buffer.from(file.buffer).toString('base64');
-      const dataURI = `data:${file.mimetype};base64,${b64}`;
-      const cloudRes = await handleUpload(dataURI);
-      return {
-        public_id: cloudRes.public_id,
-        url: cloudRes.secure_url,
-      };
-    })
-  );
-}
+  if (req.files?.length) {
+    uploadedImages = await Promise.all(
+      req.files.map(async (file) => {
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        const cloudRes = await handleUpload(dataURI);
+        return {
+          public_id: cloudRes.public_id,
+          url: cloudRes.secure_url,
+        };
+      })
+    );
+  }
   const productData = {
     ...req.body,
     seller: req.user.id,
-    images : uploadedImages,
+    images: uploadedImages,
   };
 
   const product = new Product(productData);
@@ -39,8 +37,8 @@ if (req.files?.length) {
   });
 });
 
- // get selles gets his own product
- export const getMyProducts = TryCatch(async (req, res) => {
+// get selles gets his own product
+export const getMyProducts = TryCatch(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
@@ -98,20 +96,15 @@ export const deleteProduct = TryCatch(async (req, res) => {
   });
 });
 
-
-  
 // export const sellerAnalytics = TryCatch(async (req, res) => {
 //   const sellerId = req.user.id;
 
-
 //   const totalProducts = await Product.countDocuments({ seller: sellerId });
-
 
 //   const lowStockProducts = await Product.find({
 //     seller: sellerId,
 //     stock: { $lte: 5 }, // gte greate // lte leseer
 //   }).select("name stock");
-
 
 //   const recentOrders = await Order.find({ "items.seller": sellerId })
 //     .sort({ createdAt: -1 })
@@ -120,7 +113,7 @@ export const deleteProduct = TryCatch(async (req, res) => {
 //     .lean();
 
 //   // const topProducts = await Order.aggregate([
-//   //   { $unwind: "$items" }, // 
+//   //   { $unwind: "$items" }, //
 //   //   { $match: { "items.seller": sellerId } }, // matc karega
 //   //   {
 //   //     $group: {
@@ -151,7 +144,6 @@ export const deleteProduct = TryCatch(async (req, res) => {
 //   //   },
 //   // ]);
 
-
 //   res.status(200).json({
 //     success: true,
 //     data: {
@@ -164,8 +156,7 @@ export const deleteProduct = TryCatch(async (req, res) => {
 //   });
 // });
 
-
- // customer operations
+// customer operations
 // get single product // for everyone
 // get all products // for every one
 export const getProducts = TryCatch(async (req, res) => {
@@ -173,44 +164,32 @@ export const getProducts = TryCatch(async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 10;
   const offset = (page - 1) * limit;
 
-  const {
-    search,        
-    category,      
-    minPrice,      
-    maxPrice,      
-    sortBy,        
-    sortOrder,    
-  } = req.query;
+  const { search, category, minPrice, maxPrice, sortBy, sortOrder } = req.query;
 
- 
   const query = {};
 
- 
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: 'i' } },      
+      { name: { $regex: search, $options: 'i' } },
       { description: { $regex: search, $options: 'i' } },
     ];
   }
 
- 
   if (category) {
     query.category = category;
   }
 
- 
   if (minPrice || maxPrice) {
     query.price = {};
     if (minPrice) query.price.$gte = parseFloat(minPrice);
     if (maxPrice) query.price.$lte = parseFloat(maxPrice);
   }
 
-
   let sort = {};
   if (sortBy) {
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
   } else {
-    sort = { createdAt: -1 }; 
+    sort = { createdAt: -1 };
   }
 
   const products = await Product.find(query)
@@ -232,6 +211,25 @@ export const getProducts = TryCatch(async (req, res) => {
   });
 });
 
+export const getSearchedProduct = TryCatch(async (req, res) => {
+  const { query } = req.query;
+
+  let searchQuery = {};
+
+  if (query) {
+    searchQuery.$or = [
+      { name: { $regex: query, $options: "i" } }
+    ];
+  }
+
+  const products = await Product.find(searchQuery);
+
+  res.status(200).json({
+    message: "Products fetched successfully",
+    products,
+  });
+});
+
 export const getSingleProduct = TryCatch(async (req, res) => {
   const { id } = req.params;
   const product = await Product.findById(id).populate(
@@ -248,6 +246,3 @@ export const getSingleProduct = TryCatch(async (req, res) => {
     product,
   });
 });
-
-
-

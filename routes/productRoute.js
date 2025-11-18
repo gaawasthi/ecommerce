@@ -4,6 +4,7 @@ import {
   deleteProduct,
   getMyProducts,
   getProducts,
+  getSearchedProduct,
   getSingleProduct,
 
   updateProduct,
@@ -18,8 +19,12 @@ const router = Router();
 router.get('/', getProducts); // http://localhost:8000/api/products
 
 
+ // getSearched products 
+ router.get('/search' , getSearchedProduct)
+
 // GET seller's own products
 router.get('/my/products', authMiddleware, checkRole('seller'), getMyProducts);
+
 
 // GET one product by ID
 router.get('/:id', getSingleProduct); // http://localhost:8000/api/products/:id
